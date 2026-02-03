@@ -7,7 +7,6 @@
 #include <morecolors>
 #include <free_duels>
 
-
 #define PLUGIN_NAME         "Free duels"
 #define PLUGIN_AUTHOR       "Erreur 500"
 #define PLUGIN_DESCRIPTION	"Challenge other players"
@@ -113,6 +112,7 @@ public OnPluginStart()
 		Initialisation();
 		AutoExecConfig(true, "free_duels");
 		Connect();
+		LoadTranslations("common.phrases");
 		LoadTranslations("free_duels.phrases");
 		
 		HookEvent("player_spawn", EventPlayerSpawn, EventHookMode_Pre);
@@ -180,14 +180,7 @@ TagsCheck(const String:tag[])
 
 public OnMapStart()
 {
-	AddFileToDownloadsTable("materials/free_duel/RED_Target.vmt");
-	AddFileToDownloadsTable("materials/free_duel/RED_Target.vtf");
-	AddFileToDownloadsTable("materials/free_duel/BLU_Target.vmt");
-	AddFileToDownloadsTable("materials/free_duel/BLU_Target.vtf");
-	
 	PrecacheModel("models/player/medic_animations.mdl");
-	PrecacheDecal("materials/free_duel/RED_Target.vmt", true);
-	PrecacheDecal("materials/free_duel/BLU_Target.vmt", true);
 }
 
 Connect()
@@ -1320,9 +1313,9 @@ CreateChallengerParticle(iClient)
 		Format(StrEntityName, sizeof(StrEntityName), "ent_sprite_oriented_%i", ent);
 
 		if(GetClientTeam(iClient) == 2)
-			DispatchKeyValue(ent, "model", "free_duel/RED_Target.vmt");
+			DispatchKeyValue(ent, "model", "");
 		else
-			DispatchKeyValue(ent, "model", "free_duel/BLU_Target.vmt");
+			DispatchKeyValue(ent, "model", "");
 		DispatchKeyValue(ent, "classname", "env_sprite");
 		DispatchKeyValue(ent, "spawnflags", "1");
 		DispatchKeyValue(ent, "scale", "0.1");
