@@ -2,15 +2,18 @@
 #include <sourcemod>
 #include <sdktools>
 #include <sdkhooks>
+#include <smlib/clients>
+#include <smlib/entities>
 #include <tf2>
 #include <tf2_stocks>
 #include <morecolors>
 #include <free_duels>
 
+
 #define PLUGIN_NAME         "Free duels"
 #define PLUGIN_AUTHOR       "Erreur 500"
 #define PLUGIN_DESCRIPTION	"Challenge other players"
-#define PLUGIN_VERSION      "2.05"
+#define PLUGIN_VERSION      "2.06"
 #define PLUGIN_CONTACT      "erreur500@hotmail.fr"
 #define WEBSITE 			"http://adf.ly/qVkzU"
 #define MAX_LINE_WIDTH 		60
@@ -112,19 +115,19 @@ public OnPluginStart()
 		Initialisation();
 		AutoExecConfig(true, "free_duels");
 		Connect();
-		LoadTranslations("common.phrases");
 		LoadTranslations("free_duels.phrases");
 		
 		HookEvent("player_spawn", EventPlayerSpawn, EventHookMode_Pre);
 		HookEvent("player_death", EventPlayerDeath);
 		HookEvent("player_team", EventPlayerTeam, EventHookMode_Pre);
 		HookEvent("player_changeclass", EventPlayerchangeclass, EventHookMode_Pre);
-		HookEvent("player_hurt", Eventplayerhurt, EventHookMode_Pre);
+		//HookEvent("player_hurt", Eventplayerhurt, EventHookMode_Pre);
 		HookEvent("player_builtobject", EventBuiltObject);
 		HookEvent("teamplay_round_win", EventRoundEnd);
 		HookEvent("teamplay_flag_event", EventFlag);
 		HookEvent("controlpoint_starttouch", EventCPStartTouch);
 		HookEvent("controlpoint_endtouch", EventCPEndTouch);
+		HookEvent("player_sapped_object", EventSappedObject);
 		
 		
 		CreateTimer(1.0, Timer, INVALID_HANDLE, TIMER_REPEAT);
@@ -180,7 +183,22 @@ TagsCheck(const String:tag[])
 
 public OnMapStart()
 {
+	AddFileToDownloadsTable("materials/free_duel/RED_Target.vmt");
+	AddFileToDownloadsTable("materials/free_duel/RED_Target.vtf");
+	AddFileToDownloadsTable("materials/free_duel/BLU_Target.vmt");
+	AddFileToDownloadsTable("materials/free_duel/BLU_Target.vtf");
+	
 	PrecacheModel("models/player/medic_animations.mdl");
+	PrecacheDecal("materials/free_duel/RED_Target.vmt", true);
+	PrecacheDecal("materials/free_duel/BLU_Target.vmt", true);
+	
+	for (new i=1; i<=MaxClients; i++) {
+		if (IsClientInGame(i)) {
+			SDKHook(i, SDKHook_OnTakeDamage, OnTakeDamage);
+		}
+	}
+	
+	LogMessage("Free duels plugin started");
 }
 
 Connect()
@@ -523,7 +541,7 @@ public Action:EventRoundEnd(Handle:hEvent, const String:strName[], bool:bHidden)
 		}
 	}
 }
-
+/*
 public Action:Eventplayerhurt(Handle:hEvent, const String:strName[], bool:bHidden)
 {	
 	if(GetConVarBool(c_EnableGodMod))
@@ -535,6 +553,21 @@ public Action:Eventplayerhurt(Handle:hEvent, const String:strName[], bool:bHidde
 		if( ((g_Duel[iClient][Challenger] != Attacker) || (g_Duel[Attacker][Challenger] != iClient))  && ((g_Duel[iClient][Enabled] && g_Duel[iClient][GodMod] == 1 ) || (g_Duel[Attacker][Enabled] && g_Duel[Attacker][GodMod] == 1)))
 			SetEntityHealth(iClient, GetClientHealth(iClient) + DamageAmount);
 	}
+}
+*/
+public Action:OnTakeDamage(iVictim, &iAttacker, &iInflictor, &Float:fDamage, &iDamagetype)
+{
+	if (!Client_IsValid(iVictim)) {
+		iVictim = GetEntPropEnt(iVictim, Prop_Send, "m_hBuilder");
+	}
+	
+	if (iAttacker == 0 || iAttacker == iVictim || !Client_IsValid(iVictim) || !Client_IsValid(iAttacker))
+		return Plugin_Continue;
+	
+	if( ((g_Duel[iVictim][Challenger] != iAttacker) || (g_Duel[iAttacker][Challenger] != iVictim))  && ((g_Duel[iVictim][Enabled] && g_Duel[iVictim][GodMod] == 1 ) || (g_Duel[iAttacker][Enabled] && g_Duel[iAttacker][GodMod] == 1)))
+		return Plugin_Handled;
+	
+	return Plugin_Continue;
 }
 
 public Action:EventCPStartTouch(Handle:hEvent, const String:strName[], bool:bHidden)
@@ -583,14 +616,36 @@ public Action:EventBuiltObject(Handle:hEvent, const String:strName[], bool:bHidd
 	new iClient = GetClientOfUserId(GetEventInt(hEvent, "userid"));
 	new ObjEnt = GetEventInt(hEvent, "index");
 	
-	if(!IsValidClient(iClient)) return Plugin_Handled;
-	if(!g_Duel[iClient][Enabled]) return Plugin_Handled;
-	if(!g_Duel[iClient][GodMod]) return Plugin_Handled;
+	decl String:sClassName[32];
+	GetEntityClassname(ObjEnt, sClassName, sizeof(sClassName));
 	
-	CPrintToChat(iClient, "%t", "Don'tBuilt");
-	SetVariantInt(1000);
-	AcceptEntityInput(ObjEnt, "RemoveHealth");
+	if(!IsValidClient(iClient) || !g_Duel[iClient][Enabled] || !g_Duel[iClient][GodMod])
+	{
+		if (!StrEqual(sClassName, "obj_attachment_sapper")) {
+			SDKHook(ObjEnt, SDKHook_OnTakeDamage, OnTakeDamage);
+		}
+		return Plugin_Handled;
+	}
+	
+	if (!StrEqual(sClassName, "obj_attachment_sapper"))
+	{
+		CPrintToChat(iClient, "%t", "Don'tBuilt");
+		SetVariantInt(1000);
+		AcceptEntityInput(ObjEnt, "RemoveHealth");
+	}
+	
 	return Plugin_Handled;
+}
+
+public Action:EventSappedObject(Handle:hEvent, const String:strName[], bool:bHidden)
+{
+	new iSpy = GetClientOfUserId(GetEventInt(hEvent, "userid"));
+	new iEngi = GetClientOfUserId(GetEventInt(hEvent, "ownerid"));
+	new iSapper = GetEventInt(hEvent, "sapperid");
+	if( ((g_Duel[iEngi][Challenger] != iSpy) || (g_Duel[iSpy][Challenger] != iEngi))  && ((g_Duel[iEngi][Enabled] && g_Duel[iEngi][GodMod] == 1 ) || (g_Duel[iSpy][Enabled] && g_Duel[iSpy][GodMod] == 1)))
+		AcceptEntityInput(iSapper, "Kill");
+	
+	return Plugin_Continue;
 }
 
 public OnGameFrame()
@@ -1313,9 +1368,9 @@ CreateChallengerParticle(iClient)
 		Format(StrEntityName, sizeof(StrEntityName), "ent_sprite_oriented_%i", ent);
 
 		if(GetClientTeam(iClient) == 2)
-			DispatchKeyValue(ent, "model", "");
+			DispatchKeyValue(ent, "model", "free_duel/RED_Target.vmt");
 		else
-			DispatchKeyValue(ent, "model", "");
+			DispatchKeyValue(ent, "model", "free_duel/BLU_Target.vmt");
 		DispatchKeyValue(ent, "classname", "env_sprite");
 		DispatchKeyValue(ent, "spawnflags", "1");
 		DispatchKeyValue(ent, "scale", "0.1");
@@ -1386,6 +1441,11 @@ HudMessageTime(iClient)
 	
 	if(g_Duel[iClient][Type] == 1 || g_Duel[iClient][Type] == 3)	ShowHudText(iClient, -1, "You : %i - Him: %i", g_Duel[iClient][Score], g_Duel[g_Duel[iClient][Challenger]][Score]);
 	else if(g_Duel[iClient][Type] == 2)	ShowHudText(iClient, -1, "Time left : %i | You : %i - Him: %i", g_Duel[iClient][TimeLeft], g_Duel[iClient][Score], g_Duel[g_Duel[iClient][Challenger]][Score]);
+}
+
+public OnClientPutInServer(iClient)
+{
+	SDKHook(iClient, SDKHook_OnTakeDamage, OnTakeDamage);
 }
 
 public OnClientDisconnect(iClient)
