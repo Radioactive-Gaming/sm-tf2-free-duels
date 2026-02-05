@@ -2,76 +2,74 @@
 #include <sourcemod>
 #include <sdktools>
 #include <sdkhooks>
-#include <smlib/clients>
-#include <smlib/entities>
 #include <tf2>
 #include <tf2_stocks>
-#include <morecolors>
+#include <multicolors>
 #include <free_duels>
 
 
-#define PLUGIN_NAME         "Free duels"
-#define PLUGIN_AUTHOR       "Erreur 500"
-#define PLUGIN_DESCRIPTION	"Challenge other players"
-#define PLUGIN_VERSION      "2.06"
-#define PLUGIN_CONTACT      "erreur500@hotmail.fr"
-#define WEBSITE 			"http://adf.ly/qVkzU"
-#define MAX_LINE_WIDTH 		60
-#define CHECK_DELAY 		0.1
+#define PLUGIN_NAME             "Free duels"
+#define PLUGIN_AUTHOR           "Erreur 500, X8ETr1x"
+#define PLUGIN_DESCRIPTION      "Challenge other players"
+#define PLUGIN_VERSION          "2.0.7"
+#define PLUGIN_CONTACT          "https://github.com/Radioactive-Gaming/sm-tf2-free-duels/"
+#define WEBSITE                 "https://github.com/Radioactive-Gaming/sm-tf2-free-duels/"
+#define MAX_LINE_WIDTH          60
+#define CHECK_DELAY             0.1
 
 
-enum DuelData
+enum struct DuelData
 {
-    Challenger,
-	bool:Enabled,
-	Type,
-    Score,
-	PlayedTime,
-	kills,
-	Deads,
-	ClassRestrict,
-	GodMod,
-	bool:HeadShot,
-	TimeLeft,
-	CSprite,
-	SpriteParent,
-	bool:HideSprite,
+        int Challenger;
+        bool Enabled;
+        int Type;
+        int Score;
+        int PlayedTime;
+        int kills;
+        int Deads;
+        int ClassRestrict;
+        int GodMod;
+        bool HeadShot;
+        int TimeLeft;
+        int CSprite;
+        int SpriteParent;
+        bool HideSprite;
 }
 
-new g_Duel[MAXPLAYERS+1][DuelData];
+DuelData g_Duel[MAXPLAYERS+1];
 
-new	victories[MAXPLAYERS+1]			= {0, ...};
-new death[MAXPLAYERS+1]				= {0, ...};
-new	killsNbr[MAXPLAYERS+1]			= {0, ...};
-new total[MAXPLAYERS+1]				= {0, ...};
-new Float:points[MAXPLAYERS+1]		= {0.0, ...};
+new victories[MAXPLAYERS+1]     = {0, ...};
+new death[MAXPLAYERS+1]         = {0, ...};
+new killsNbr[MAXPLAYERS+1]      = {0, ...};
+new total[MAXPLAYERS+1]	        = {0, ...};
+new Float:points[MAXPLAYERS+1]  = {0.0, ...};
 
-new bool:Abandon[MAXPLAYERS+1]		= {false, ...};
-new bool:Equality[MAXPLAYERS+1]		= {false, ...};
-new bool:Winner[MAXPLAYERS+1]		= {false, ...};
-new bool:SQLite 					= false;
+new bool:Abandon[MAXPLAYERS+1]  = {false, ...};
+new bool:Equality[MAXPLAYERS+1] = {false, ...};
+new bool:Winner[MAXPLAYERS+1]   = {false, ...};
+new bool:SQLite                 = false;
 
-new Handle:c_EnableType[4]			= {INVALID_HANDLE, ...};
-new Handle:cvarEnabled				= INVALID_HANDLE;
-new Handle:c_Tag					= INVALID_HANDLE;
-new Handle:c_EnableClass			= INVALID_HANDLE;
-new Handle:c_EnableGodMod			= INVALID_HANDLE;
-new Handle:c_EnableHeadShot			= INVALID_HANDLE;
-new Handle:c_HeadShotFlag			= INVALID_HANDLE;
-new Handle:c_Immunity				= INVALID_HANDLE;
-new Handle:c_ClassRestriction		= INVALID_HANDLE;
-new Handle:c_GodModFlag				= INVALID_HANDLE;
-new Handle:db 						= INVALID_HANDLE;
+new Handle:c_EnableType[4]      = {INVALID_HANDLE, ...};
+new Handle:cvarEnabled          = INVALID_HANDLE;
+new Handle:c_Tag                = INVALID_HANDLE;
+new Handle:c_EnableClass        = INVALID_HANDLE;
+new Handle:c_EnableGodMod       = INVALID_HANDLE;
+new Handle:c_EnableHeadShot     = INVALID_HANDLE;
+new Handle:c_HeadShotFlag       = INVALID_HANDLE;
+new Handle:c_Immunity           = INVALID_HANDLE;
+new Handle:c_ClassRestriction   = INVALID_HANDLE;
+new Handle:c_GodModFlag         = INVALID_HANDLE;
+new Handle:db                   = INVALID_HANDLE;
 
 new String:ClientSteamID[MAXPLAYERS+1][24];
 new String:ClientName[MAXPLAYERS+1][MAX_LINE_WIDTH];
 
-static String:DuelNames[4][16] 					= {"Disabled", "Normal", "Time left", "Amount of kills"};
-static String:ClassNames[TFClassType][] 		= {"ANY", "Scout", "Sniper", "Soldier", "Demoman", "Medic", "Heavy", "Pyro", "Spy", "Engineer" };
-static String:ClassRestricNames[TFClassType][] 	= {"", "scouts", "snipers", "soldiers", "demomen", "medics", "heavies", "pyros", "spies", "engineers" };
-static String:TF_ClassNames[TFClassType][] 		= {"", "scout", "sniper", "soldier", "demoman", "medic", "heavyweapons", "pyro", "spy", "engineer" };
-static TimeLeftOptions[10] 			= {1, 2, 5, 10, 15, 20, 30, 45, 60, 120};
-static AmountOfKillOptions[12] 		= {1, 2, 3, 4, 5, 10, 15, 20, 50, 75, 100, 150};
+static String:DuelNames[4][16]                  = {"Disabled", "Normal", "Time left", "Amount of kills"};
+static String:ClassNames[TFClassType][]         = {"ANY", "Scout", "Sniper", "Soldier", "Demoman", "Medic", "Heavy", "Pyro", "Spy", "Engineer" };
+static String:ClassRestricNames[TFClassType][]  = {"", "scouts", "snipers", "soldiers", "demomen", "medics", "heavies", "pyros", "spies", "engineers" };
+static String:TF_ClassNames[TFClassType][]      = {"", "scout", "sniper", "soldier", "demoman", "medic", "heavyweapons", "pyro", "spy", "engineer" };
+static TimeLeftOptions[10]                      = {1, 2, 5, 10, 15, 20, 30, 45, 60, 120};
+static AmountOfKillOptions[12]                  = {1, 2, 3, 4, 5, 10, 15, 20, 50, 75, 100, 150};
 
 new LimitPerClass[4][10];
 new RankTotal;
@@ -90,18 +88,18 @@ public Plugin:myinfo =
 public OnPluginStart()
 {	
 	CreateConVar("duel_version", PLUGIN_VERSION, "Duel version", FCVAR_PLUGIN|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	cvarEnabled 		= CreateConVar("duel_enabled", 			"1", 	"Enable or disable Free Duels ?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	c_Tag		 		= CreateConVar("duel_tag", 				"1", 	"Add 'duels' tags", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	c_Immunity			= CreateConVar("duel_immunity", 		"0", 	"a or b or o or p or q or r or s or t or z for flag needed, 0 = no flag needed");	
-	c_ClassRestriction	= CreateConVar("duel_classrestrict", 	"0", 	"1 = classrestrict by DJ Tsunami, 2 = Max Class (Class Limit) by Nican , 0 = none");
-	c_EnableClass		= CreateConVar("duel_class", 			"1", 	"0 = disable class restriction duel, 1 = enable", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	c_EnableType[1]		= CreateConVar("duel_type1", 			"1",	"0 = disable `normal` duel, 1 = enable", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	c_EnableType[2]		= CreateConVar("duel_type2", 			"1", 	"0 = disable `time left` duel, 1 = enable", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	c_EnableType[3]		= CreateConVar("duel_type3", 			"1",	"0 = disable `amount of kills` duel, 1 = enable", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	c_EnableGodMod		= CreateConVar("duel_godmod", 			"1", 	"0 = disable challenger godmod, 1 = enable", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	c_GodModFlag		= CreateConVar("duel_godmod_flag", 		"a", 	"Flag needed to create godmod duel : a or b or o or p or q or r or s or t or z, 0 = no flag");	
-	c_EnableHeadShot	= CreateConVar("duel_headshot", 		"1", 	"0 = disable head shot only (sniper), 1 = enable", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	c_HeadShotFlag		= CreateConVar("duel_headshot_flag", 	"a", 	"Flag needed to create head shot duel : a or b or o or p or q or r or s or t or z, 0 = no flag");	
+	cvarEnabled             = CreateConVar("duel_enabled", 			"1", 	"Enable or disable Free Duels ?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	c_Tag                   = CreateConVar("duel_tag", 				"1", 	"Add 'duels' tags", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	c_Immunity              = CreateConVar("duel_immunity", 		"0", 	"a or b or o or p or q or r or s or t or z for flag needed, 0 = no flag needed");	
+	c_ClassRestriction      = CreateConVar("duel_classrestrict", 	"0", 	"1 = classrestrict by DJ Tsunami, 2 = Max Class (Class Limit) by Nican , 0 = none");
+	c_EnableClass	        = CreateConVar("duel_class", 			"1", 	"0 = disable class restriction duel, 1 = enable", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	c_EnableType[1]	        = CreateConVar("duel_type1", 			"1",	"0 = disable `normal` duel, 1 = enable", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	c_EnableType[2]	        = CreateConVar("duel_type2", 			"1", 	"0 = disable `time left` duel, 1 = enable", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	c_EnableType[3]	        = CreateConVar("duel_type3", 			"1",	"0 = disable `amount of kills` duel, 1 = enable", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	c_EnableGodMod	        = CreateConVar("duel_godmod", 			"1", 	"0 = disable challenger godmod, 1 = enable", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	c_GodModFlag            = CreateConVar("duel_godmod_flag", 		"a", 	"Flag needed to create godmod duel : a or b or o or p or q or r or s or t or z, 0 = no flag");	
+	c_EnableHeadShot        = CreateConVar("duel_headshot", 		"1", 	"0 = disable head shot only (sniper), 1 = enable", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	c_HeadShotFlag	        = CreateConVar("duel_headshot_flag", 	"a", 	"Flag needed to create head shot duel : a or b or o or p or q or r or s or t or z, 0 = no flag");	
 		
 	if(GetConVarBool(cvarEnabled))
 	{
@@ -149,9 +147,9 @@ Initialisation()
 {
 	for(new i=0; i<MAXPLAYERS+1; i++)
 	{
-		g_Duel[i][Enabled]		= false;
-		g_Duel[i][SpriteParent]	= -1;
-		g_Duel[i][CSprite]		= -1;
+		g_Duel[i].Enabled		= false;
+		g_Duel[i].SpriteParent	= -1;
+		g_Duel[i].CSprite		= -1;
 	}
 }
 
@@ -330,7 +328,7 @@ public Action:loadDuel(iClient, Args)
 		{	
 			if(isGoodSituation(iClient, target_list[i]))
 			{
-				if(!g_Duel[iClient][Type])
+				if(!g_Duel[iClient].Type)
 				{
 					LogAction(iClient, target_list[i], "%L challenged %L", iClient, target_list[i]);
 					CreateDuel(iClient, target_list[i]);
@@ -351,7 +349,6 @@ public bool:isAdmin(iClient, String:FlagNeeded[2])
 		new flags = GetUserFlagBits(iClient);
 		if(flags == 0)
 		{
-			//PrintToChatAll("Flag : %s + %s", FlagNeeded[0], FlagNeeded[1]);
 			CPrintToChat(iClient,"%t", "NoFlag");
 			return false;
 		}
@@ -375,7 +372,6 @@ public bool:isAdmin(iClient, String:FlagNeeded[2])
 			return true;
 		else
 		{
-			//PrintToChatAll("FlagNO : %s + %s", FlagNeeded[0], FlagNeeded[1]);
 			CPrintToChat(iClient,"%t", "NoFlag");
 			return false;
 		}
@@ -423,15 +419,15 @@ RemovePlayerBuilding(iClient)
 public Action:EventPlayerSpawn(Handle:hEvent, const String:strName[], bool:bHidden)
 {
 	new iClient = GetClientOfUserId(GetEventInt(hEvent, "userid"));
-	if(g_Duel[iClient][Enabled] && g_Duel[iClient][ClassRestrict] != 0 && TF2_GetPlayerClass(iClient) != TFClassType:g_Duel[iClient][ClassRestrict])
+	if(g_Duel[iClient].Enabled && g_Duel[iClient].ClassRestrict != 0 && TF2_GetPlayerClass(iClient) != TFClassType:g_Duel[iClient].ClassRestrict)
 	{
-		TF2_SetPlayerClass(iClient, TFClassType:g_Duel[iClient][ClassRestrict], false);
+		TF2_SetPlayerClass(iClient, TFClassType:g_Duel[iClient].ClassRestrict, false);
 		TF2_RespawnPlayer(iClient);
 		CPrintToChat(iClient, "%t", "ChangeClass");
 		CPrintToChat(iClient, "%t", "Abort");
 	}
 	
-	if(g_Duel[iClient][Enabled] && g_Duel[iClient][GodMod] == 1)
+	if(g_Duel[iClient].Enabled && g_Duel[iClient].GodMod == 1)
 		SetGodModColor(iClient);
 }
 
@@ -445,50 +441,50 @@ public Action:EventPlayerDeath(Handle:hEvent, const String:strName[], bool:bHidd
 	if( GetEventInt( hEvent, "death_flags" ) & TF_DEATHFLAG_DEADRINGER )
         return;
 
-	if( GetConVarBool(c_EnableHeadShot) == true && g_Duel[iClient][HeadShot] == true)
+	if( GetConVarBool(c_EnableHeadShot) == true && g_Duel[iClient].HeadShot == true)
 	{
 		new customkill = GetEventInt(hEvent, "customkill");
 		new bool:headshot = (customkill == 1);
 		if(headshot == false) return;
 	}
 	
-	if (g_Duel[iKiller][Challenger] == iClient && g_Duel[iKiller][Enabled])
+	if (g_Duel[iKiller].Challenger == iClient && g_Duel[iKiller].Enabled)
 	{
-		g_Duel[iKiller][kills] += 1;
-		g_Duel[iClient][Deads] += 1;
+		g_Duel[iKiller].kills += 1;
+		g_Duel[iClient].Deads += 1;
 		
-		if(g_Duel[iKiller][Enabled] &&  g_Duel[iKiller][Type] != 3 )
+		if(g_Duel[iKiller].Enabled &&  g_Duel[iKiller].Type != 3 )
 		{
-			g_Duel[iKiller][Score] += 1;
-			CPrintToChat(iKiller, "%t", "Score", iKiller, g_Duel[iKiller][Score], iClient, g_Duel[iClient][Score]);
-			CPrintToChat(iClient, "%t", "Score", iClient, g_Duel[iClient], iKiller, g_Duel[iKiller][Score]);
+			g_Duel[iKiller].Score += 1;
+			CPrintToChat(iKiller, "%t", "Score", iKiller, g_Duel[iKiller].Score, iClient, g_Duel[iClient].Score);
+			CPrintToChat(iClient, "%t", "Score", iClient, g_Duel[iClient].Score, iKiller, g_Duel[iKiller].Score);
 		}
-		else if(g_Duel[iKiller][Enabled] &&  g_Duel[iKiller][Type] == 3)
+		else if(g_Duel[iKiller].Enabled &&  g_Duel[iKiller].Type == 3)
 		{
-			g_Duel[iKiller][Score] -= 1;
-			CPrintToChat(iKiller, "%t", "Score", iKiller, g_Duel[iKiller][Score], iClient, g_Duel[iClient][Score]);
-			CPrintToChat(iClient, "%t", "Score", iClient, g_Duel[iClient][Score], iKiller, g_Duel[iKiller][Score]);
+			g_Duel[iKiller].Score -= 1;
+			CPrintToChat(iKiller, "%t", "Score", iKiller, g_Duel[iKiller].Score, iClient, g_Duel[iClient].Score);
+			CPrintToChat(iClient, "%t", "Score", iClient, g_Duel[iClient].Score, iKiller, g_Duel[iKiller].Score);
 			
-			if(g_Duel[iKiller][Score] == 0) EndDuel(iKiller, g_Duel[iKiller][Type]);
+			if(g_Duel[iKiller].Score == 0) EndDuel(iKiller, g_Duel[iKiller].Type);
 		}
 	}
-	else if(g_Duel[iAssister][Challenger] == iClient && g_Duel[iAssister][Enabled])
+	else if(g_Duel[iAssister].Challenger == iClient && g_Duel[iAssister].Enabled)
 	{
-		g_Duel[iAssister][kills] += 1;
-		g_Duel[iClient][Deads] += 1;
-		if(g_Duel[iAssister][Enabled] &&  g_Duel[iAssister][Type] != 3 )
+		g_Duel[iAssister].kills += 1;
+		g_Duel[iClient].Deads += 1;
+		if(g_Duel[iAssister].Enabled &&  g_Duel[iAssister].Type != 3 )
 		{
-			g_Duel[iAssister][Score] += 1;
-			CPrintToChat(iAssister, "%t", "Score", iAssister, g_Duel[iAssister][Score], iClient, g_Duel[iClient][Score]);
-			CPrintToChat(iClient, "%t", "Score", iClient, g_Duel[iClient][Score], iAssister, g_Duel[iAssister][Score]);
+			g_Duel[iAssister].Score += 1;
+			CPrintToChat(iAssister, "%t", "Score", iAssister, g_Duel[iAssister].Score, iClient, g_Duel[iClient].Score);
+			CPrintToChat(iClient, "%t", "Score", iClient, g_Duel[iClient].Score, iAssister, g_Duel[iAssister].Score);
 		}
-		else if(g_Duel[iAssister][Enabled] &&  g_Duel[iAssister][Type] == 3)
+		else if(g_Duel[iAssister].Enabled &&  g_Duel[iAssister].Type == 3)
 		{
-			g_Duel[iAssister][Score] -= 1;
-			CPrintToChat(iAssister, "%t", "Score", iAssister, g_Duel[iAssister][Score], iClient, g_Duel[iClient][Score]);
-			CPrintToChat(iClient, "%t", "Score", iClient, g_Duel[iClient][Score], iAssister, g_Duel[iAssister][Score]);
+			g_Duel[iAssister].Score -= 1;
+			CPrintToChat(iAssister, "%t", "Score", iAssister, g_Duel[iAssister].Score, iClient, g_Duel[iClient].Score);
+			CPrintToChat(iClient, "%t", "Score", iClient, g_Duel[iClient].Score, iAssister, g_Duel[iAssister].Score);
 			
-			if(g_Duel[iAssister][Score] == 0) EndDuel(iAssister, g_Duel[iAssister][Type]);
+			if(g_Duel[iAssister].Score == 0) EndDuel(iAssister, g_Duel[iAssister].Type);
 		}
 	}
 }
@@ -497,22 +493,22 @@ public Action:EventPlayerTeam(Handle:hEvent, const String:strName[], bool:bHidde
 {	
 	new iClient = GetClientOfUserId(GetEventInt(hEvent, "userid"));
 	
-	if(g_Duel[iClient][Enabled])
+	if(g_Duel[iClient].Enabled)
 	{
-		CPrintToChatAll("%t", "Victory", g_Duel[iClient][Challenger], iClient, "(Player changed team)");
+		CPrintToChatAll("%t", "Victory", g_Duel[iClient].Challenger, iClient, "(Player changed team)");
 		
-		Abandon[g_Duel[iClient][Challenger]] 	= false;
+		Abandon[g_Duel[iClient].Challenger] 	= false;
 		Abandon[iClient]						= true;
-		Winner[g_Duel[iClient][Challenger]] 	= true;
+		Winner[g_Duel[iClient].Challenger] 	= true;
 		Winner[iClient] 						= false;
 		
-		if(g_Duel[iClient][Challenger] !=0)
-			ClientCommand(g_Duel[iClient][Challenger], "playgamesound ui/duel_event.wav");
+		if(g_Duel[iClient].Challenger !=0)
+			ClientCommand(g_Duel[iClient].Challenger, "playgamesound ui/duel_event.wav");
 
 		if(iClient != 0)
 			ClientCommand(iClient, "playgamesound ui/duel_event.wav");
 		
-		InitializeClientonDB(g_Duel[iClient][Challenger]);
+		InitializeClientonDB(g_Duel[iClient].Challenger);
 		InitializeClientonDB(iClient);
 	}
 }
@@ -520,9 +516,9 @@ public Action:EventPlayerTeam(Handle:hEvent, const String:strName[], bool:bHidde
 public Action:EventPlayerchangeclass(Handle:hEvent, const String:strName[], bool:bHidden)
 {
 	new iClient = GetClientOfUserId(GetEventInt(hEvent, "userid"));
-	if(g_Duel[iClient][Enabled] && g_Duel[iClient][ClassRestrict] != 0 && TF2_GetPlayerClass(iClient) != TFClassType:g_Duel[iClient][ClassRestrict])
+	if(g_Duel[iClient].Enabled && g_Duel[iClient].ClassRestrict != 0 && TF2_GetPlayerClass(iClient) != TFClassType:g_Duel[iClient].ClassRestrict)
 	{
-		TF2_SetPlayerClass(iClient, TFClassType:g_Duel[iClient][ClassRestrict], false);
+		TF2_SetPlayerClass(iClient, TFClassType:g_Duel[iClient].ClassRestrict, false);
 		TF2_RespawnPlayer(iClient);
 		CPrintToChat(iClient, "%t", "ChangeClass");
 		CPrintToChat(iClient, "%t", "Abort");
@@ -533,28 +529,15 @@ public Action:EventRoundEnd(Handle:hEvent, const String:strName[], bool:bHidden)
 {
 	for(new i = 1; i < MaxClients ; i++)
 	{
-		if(g_Duel[i][Enabled])
+		if(g_Duel[i].Enabled)
 		{
-			EndDuel(i, g_Duel[i][Type]);
-			g_Duel[i][Enabled] = false;
-			g_Duel[g_Duel[i][Challenger]][Enabled] = false;
+			EndDuel(i, g_Duel[i].Type);
+			g_Duel[i].Enabled = false;
+			g_Duel[g_Duel[i].Challenger].Enabled = false;
 		}
 	}
 }
-/*
-public Action:Eventplayerhurt(Handle:hEvent, const String:strName[], bool:bHidden)
-{	
-	if(GetConVarBool(c_EnableGodMod))
-	{
-		new iClient 		= GetClientOfUserId(GetEventInt(hEvent, "userid"));
-		new DamageAmount 	= GetEventInt(hEvent, "damageamount");
-		new Attacker 		= GetClientOfUserId(GetEventInt(hEvent, "attacker"));
-	
-		if( ((g_Duel[iClient][Challenger] != Attacker) || (g_Duel[Attacker][Challenger] != iClient))  && ((g_Duel[iClient][Enabled] && g_Duel[iClient][GodMod] == 1 ) || (g_Duel[Attacker][Enabled] && g_Duel[Attacker][GodMod] == 1)))
-			SetEntityHealth(iClient, GetClientHealth(iClient) + DamageAmount);
-	}
-}
-*/
+
 public Action:OnTakeDamage(iVictim, &iAttacker, &iInflictor, &Float:fDamage, &iDamagetype)
 {
 	if (!Client_IsValid(iVictim)) {
@@ -564,7 +547,7 @@ public Action:OnTakeDamage(iVictim, &iAttacker, &iInflictor, &Float:fDamage, &iD
 	if (iAttacker == 0 || iAttacker == iVictim || !Client_IsValid(iVictim) || !Client_IsValid(iAttacker))
 		return Plugin_Continue;
 	
-	if( ((g_Duel[iVictim][Challenger] != iAttacker) || (g_Duel[iAttacker][Challenger] != iVictim))  && ((g_Duel[iVictim][Enabled] && g_Duel[iVictim][GodMod] == 1 ) || (g_Duel[iAttacker][Enabled] && g_Duel[iAttacker][GodMod] == 1)))
+	if( ((g_Duel[iVictim].Challenger != iAttacker) || (g_Duel[iAttacker].Challenger != iVictim))  && ((g_Duel[iVictim].Enabled && g_Duel[iVictim].GodMod == 1 ) || (g_Duel[iAttacker].Enabled && g_Duel[iAttacker].GodMod == 1)))
 		return Plugin_Handled;
 	
 	return Plugin_Continue;
@@ -573,9 +556,9 @@ public Action:OnTakeDamage(iVictim, &iAttacker, &iInflictor, &Float:fDamage, &iD
 public Action:EventCPStartTouch(Handle:hEvent, const String:strName[], bool:bHidden)
 {
 	new iClient = GetEventInt(hEvent, "player");
-	if(g_Duel[iClient][Enabled] && g_Duel[iClient][GodMod] == 1)
+	if(g_Duel[iClient].Enabled && g_Duel[iClient].GodMod == 1)
 	{
-		g_Duel[iClient][GodMod] = 2;	// It's not because you are on GodMod you can take CP!
+		g_Duel[iClient].GodMod = 2;	// It's not because you are on GodMod you can take CP!
 		SetEntityRenderColor(iClient, 255, 255, 255, 0);
 	}
 }
@@ -585,9 +568,9 @@ public Action:EventCPEndTouch(Handle:hEvent, const String:strName[], bool:bHidde
 	new iClient = GetEventInt(hEvent, "player");
 	if(!IsValidClient(iClient)) return;
 	
-	if(g_Duel[iClient][Enabled] && g_Duel[iClient][GodMod] == 2)
+	if(g_Duel[iClient].Enabled && g_Duel[iClient].GodMod == 2)
 	{
-		g_Duel[iClient][GodMod] = 1;	// You're a good guy!
+		g_Duel[iClient].GodMod = 1;	// You're a good guy!
 		SetGodModColor(iClient);
 	}
 }
@@ -599,14 +582,14 @@ public Action:EventFlag(Handle:hEvent, const String:strName[], bool:bHidden)
 	
 	if(!IsValidClient(iClient)) return;
 	
-	if(g_Duel[iClient][Enabled] && g_Duel[iClient][GodMod] == 1 && (EventType == 1 || EventType == 3) )	
+	if(g_Duel[iClient].Enabled && g_Duel[iClient].GodMod == 1 && (EventType == 1 || EventType == 3) )	
 	{
-		g_Duel[iClient][GodMod] = 2;	// It's not because you are on GodMod you can take Flag!
+		g_Duel[iClient].GodMod = 2;	// It's not because you are on GodMod you can take Flag!
 		SetEntityRenderColor(iClient, 255, 255, 255, 0);
 	}
-	else if(g_Duel[iClient][Enabled] && g_Duel[iClient][GodMod] == 2 && (EventType == 2 || EventType == 4) )	
+	else if(g_Duel[iClient].Enabled && g_Duel[iClient].GodMod == 2 && (EventType == 2 || EventType == 4) )	
 	{
-		g_Duel[iClient][GodMod] = 1;	// You're a good guy!
+		g_Duel[iClient].GodMod = 1;	// You're a good guy!
 		SetGodModColor(iClient);
 	}
 }
@@ -619,7 +602,7 @@ public Action:EventBuiltObject(Handle:hEvent, const String:strName[], bool:bHidd
 	decl String:sClassName[32];
 	GetEntityClassname(ObjEnt, sClassName, sizeof(sClassName));
 	
-	if(!IsValidClient(iClient) || !g_Duel[iClient][Enabled] || !g_Duel[iClient][GodMod])
+	if(!IsValidClient(iClient) || !g_Duel[iClient].Enabled || !g_Duel[iClient].GodMod)
 	{
 		if (!StrEqual(sClassName, "obj_attachment_sapper")) {
 			SDKHook(ObjEnt, SDKHook_OnTakeDamage, OnTakeDamage);
@@ -642,7 +625,7 @@ public Action:EventSappedObject(Handle:hEvent, const String:strName[], bool:bHid
 	new iSpy = GetClientOfUserId(GetEventInt(hEvent, "userid"));
 	new iEngi = GetClientOfUserId(GetEventInt(hEvent, "ownerid"));
 	new iSapper = GetEventInt(hEvent, "sapperid");
-	if( ((g_Duel[iEngi][Challenger] != iSpy) || (g_Duel[iSpy][Challenger] != iEngi))  && ((g_Duel[iEngi][Enabled] && g_Duel[iEngi][GodMod] == 1 ) || (g_Duel[iSpy][Enabled] && g_Duel[iSpy][GodMod] == 1)))
+	if( ((g_Duel[iEngi].Challenger != iSpy) || (g_Duel[iSpy].Challenger != iEngi))  && ((g_Duel[iEngi].Enabled && g_Duel[iEngi].GodMod == 1 ) || (g_Duel[iSpy].Enabled && g_Duel[iSpy].GodMod == 1)))
 		AcceptEntityInput(iSapper, "Kill");
 	
 	return Plugin_Continue;
@@ -653,27 +636,43 @@ public OnGameFrame()
 	new Float:vecOrigin[3];
 	
 	for(new iClient = 1; iClient <= MaxClients; iClient++ )
-		if(IsValidClient(iClient) && g_Duel[iClient][Enabled])
+		if(IsValidClient(iClient) && g_Duel[iClient].Enabled)
 		{
 			if(TF2_GetPlayerClass(iClient) == TFClass_Spy && TF2_IsPlayerInCondition(iClient, TFCond_Cloaked))
 			{
-				if(!g_Duel[iClient][HideSprite])
-					g_Duel[iClient][HideSprite] = true;
+				if(!g_Duel[iClient].HideSprite)
+					g_Duel[iClient].HideSprite = true;
 			}
 			else
 			{
-				if(g_Duel[iClient][HideSprite])
-					g_Duel[iClient][HideSprite] = false;
+				if(g_Duel[iClient].HideSprite)
+					g_Duel[iClient].HideSprite = false;
 			}
 			
 			GetClientEyePosition( iClient, vecOrigin );
 			vecOrigin[2] += 25.0;
 			
-			if(EntRefToEntIndex(g_Duel[iClient][SpriteParent]) != -1)
-				TeleportEntity(EntRefToEntIndex(g_Duel[iClient][SpriteParent]), vecOrigin, NULL_VECTOR, NULL_VECTOR);
+			if(EntRefToEntIndex(g_Duel[iClient].SpriteParent) != -1)
+				TeleportEntity(EntRefToEntIndex(g_Duel[iClient].SpriteParent), vecOrigin, NULL_VECTOR, NULL_VECTOR);
 		}
 }
 
+stock bool:Client_IsValid(client, bool:checkConnected=true)
+{
+	if (client > 4096) {
+		client = EntRefToEntIndex(client);
+	}
+
+	if (client < 1 || client > MaxClients) {
+		return false;
+	}
+
+	if (checkConnected && !IsClientConnected(client)) {
+		return false;
+	}
+
+	return true;
+}
 
 //------------------------------------------------------------------------------------------------------------------------
 //							!DUEL Menu
@@ -682,9 +681,9 @@ public OnGameFrame()
 
 public CallPanel(iClient)
 {	
-	if(!g_Duel[iClient][Enabled])
+	if(!g_Duel[iClient].Enabled)
 	{
-		if(!g_Duel[iClient][Type])
+		if(!g_Duel[iClient].Type)
 		{
 			new iteam;
 			new Player[40];
@@ -698,7 +697,7 @@ public CallPanel(iClient)
 				for(new i = 1; i < MaxClients ; i++)	// Create an array if valid players (players + bots)
 				{	
 					Player[i-1] = 0;
-					if(IsValidClient(i) && GetClientTeam(i) == iteam && !g_Duel[i][Enabled] && g_Duel[i][Challenger] == 0)
+					if(IsValidClient(i) && GetClientTeam(i) == iteam && !g_Duel[i].Enabled && g_Duel[i].Challenger == 0)
 					{
 						Player[nbr] = i;
 						nbr += 1;
@@ -754,7 +753,7 @@ CreateDuel(Player1, Player2)
 {
 	if(isGoodSituation(Player1, Player2))
 	{
-		g_Duel[Player1][Challenger] 	= Player2;
+		g_Duel[Player1].Challenger 	= Player2;
 		
 		GetSafeClientData(Player1);
 		GetSafeClientData(Player2);
@@ -773,9 +772,9 @@ CreateDuel(Player1, Player2)
 		}
 		else
 		{
-			g_Duel[Player1][Type] 		= 1;
-			g_Duel[Player1][TimeLeft] 	= 1;
-			g_Duel[Player1][Score] 		= 1;
+			g_Duel[Player1].Type 		= 1;
+			g_Duel[Player1].TimeLeft 	= 1;
+			g_Duel[Player1].Score 		= 1;
 			
 			DuelOption(Player1);
 		}
@@ -788,27 +787,27 @@ public DuelOption(Player1)
 	new Handle:menu = CreatePanel();
 	
 	SetPanelTitle(menu, "Duel Options:");
-	Format(MenuItem, sizeof(MenuItem), "Duel                        [%s]", DuelNames[g_Duel[Player1][Type]]);
+	Format(MenuItem, sizeof(MenuItem), "Duel                        [%s]", DuelNames[g_Duel[Player1].Type]);
 	DrawPanelItem(menu, MenuItem);
 	
-	if(g_Duel[Player1][Type] == 2)
+	if(g_Duel[Player1].Type == 2)
 	{
-		Format(MenuItem, sizeof(MenuItem), "Time                        [%i %s]", g_Duel[Player1][TimeLeft], g_Duel[Player1][TimeLeft] >1 ? "mins":"min");
+		Format(MenuItem, sizeof(MenuItem), "Time                        [%i %s]", g_Duel[Player1].TimeLeft, g_Duel[Player1].TimeLeft >1 ? "mins":"min");
 		DrawPanelItem(menu, MenuItem);
 	}
-	else if(g_Duel[Player1][Type] == 3)
+	else if(g_Duel[Player1].Type == 3)
 	{
-		Format(MenuItem, sizeof(MenuItem), "Amount                   [%i %s]", g_Duel[Player1][Score], g_Duel[Player1][Score] >1 ? "kills":"kill");
+		Format(MenuItem, sizeof(MenuItem), "Amount                   [%i %s]", g_Duel[Player1].Score, g_Duel[Player1].Score >1 ? "kills":"kill");
 		DrawPanelItem(menu, MenuItem);
 	}
 	else
 		DrawPanelText(menu, " ");
 	
-	Format(MenuItem, sizeof(MenuItem), "Class restriction                [%s]", ClassNames[g_Duel[Player1][ClassRestrict]]);
+	Format(MenuItem, sizeof(MenuItem), "Class restriction                [%s]", ClassNames[g_Duel[Player1].ClassRestrict]);
 	DrawPanelItem(menu, MenuItem);
-	Format(MenuItem, sizeof(MenuItem), "Challenger protection       [%s]", g_Duel[Player1][GodMod] ? "ON":"OFF");
+	Format(MenuItem, sizeof(MenuItem), "Challenger protection       [%s]", g_Duel[Player1].GodMod ? "ON":"OFF");
 	DrawPanelItem(menu, MenuItem);
-	Format(MenuItem, sizeof(MenuItem), "Head shot only                  [%s]", g_Duel[Player1][HeadShot] ? "ON":"OFF");
+	Format(MenuItem, sizeof(MenuItem), "Head shot only                  [%s]", g_Duel[Player1].HeadShot ? "ON":"OFF");
 	DrawPanelItem(menu, MenuItem);
 	DrawPanelText(menu, " ");
 	DrawPanelItem(menu, "Rules");
@@ -823,7 +822,7 @@ public DuelOptionAnswer(Handle:menu, MenuAction:action, Player1, args)
 {
 	if (action == MenuAction_Cancel)
 	{
-		ResetPlayer(g_Duel[Player1][Challenger]);
+		ResetPlayer(g_Duel[Player1].Challenger);
 		ResetPlayer(Player1);
 	}
 	else if (action == MenuAction_End)
@@ -879,8 +878,8 @@ public DuelOptionAnswer(Handle:menu, MenuAction:action, Player1, args)
 					
 			if(IsClientInGame(Player1))
 				PlayerPerClass[GetClientTeam(Player1)%2][TF2_GetPlayerClass(Player1)] --;
-			if(IsClientInGame(g_Duel[Player1][Challenger]))
-				PlayerPerClass[GetClientTeam(g_Duel[Player1][Challenger])%2][TF2_GetPlayerClass(g_Duel[Player1][Challenger])] --;
+			if(IsClientInGame(g_Duel[Player1].Challenger))
+				PlayerPerClass[GetClientTeam(g_Duel[Player1].Challenger)%2][TF2_GetPlayerClass(g_Duel[Player1].Challenger)] --;
 			
 			// Check Class full and available
 			for( new i=1;i<=9;i++)
@@ -904,34 +903,34 @@ public DuelOptionAnswer(Handle:menu, MenuAction:action, Player1, args)
 		
 		if(args == 1)		// Duel type
 		{
-			g_Duel[Player1][Type]++;
+			g_Duel[Player1].Type++;
 			
-			if(g_Duel[Player1][Type] > 3)
-				g_Duel[Player1][Type] = 1;
+			if(g_Duel[Player1].Type > 3)
+				g_Duel[Player1].Type = 1;
 		}
-		else if(args == 2 && g_Duel[Player1][Type] == 2)		// Time
+		else if(args == 2 && g_Duel[Player1].Type == 2)		// Time
 		{
 			new i;
-			while(TimeLeftOptions[i] != g_Duel[Player1][TimeLeft] && i < 10) i++;
+			while(TimeLeftOptions[i] != g_Duel[Player1].TimeLeft && i < 10) i++;
 			
 			if(i == 9) i = 0;
 			else i++;
 			
-			g_Duel[Player1][TimeLeft] = TimeLeftOptions[i];
+			g_Duel[Player1].TimeLeft = TimeLeftOptions[i];
 		}
-		else if(args == 2 && g_Duel[Player1][Type] == 3)		// Amount
+		else if(args == 2 && g_Duel[Player1].Type == 3)		// Amount
 		{	
 			new i;
-			while(AmountOfKillOptions[i] != g_Duel[Player1][Score] && i < 12) i++;
+			while(AmountOfKillOptions[i] != g_Duel[Player1].Score && i < 12) i++;
 			
 			if(i == 11) i = 0;
 			else i++;
 			
-			g_Duel[Player1][Score] = AmountOfKillOptions[i];
+			g_Duel[Player1].Score = AmountOfKillOptions[i];
 		}
 		else if(args >= 2  && args < 8)
 		{
-			if(g_Duel[Player1][Type] == 1)
+			if(g_Duel[Player1].Type == 1)
 				args++;
 		
 			if(args == 3)		// Class Restriction
@@ -940,33 +939,33 @@ public DuelOptionAnswer(Handle:menu, MenuAction:action, Player1, args)
 				{
 					do
 					{
-						if(g_Duel[Player1][ClassRestrict] == 2)	// Only for sniper
-							g_Duel[Player1][HeadShot] = false;
+						if(g_Duel[Player1].ClassRestrict == 2)	// Only for sniper
+							g_Duel[Player1].HeadShot = false;
 						
-						g_Duel[Player1][ClassRestrict] ++;
+						g_Duel[Player1].ClassRestrict ++;
 							
-						if(g_Duel[Player1][ClassRestrict] >= 10)	// Modulo 10 classes
-							g_Duel[Player1][ClassRestrict] = 0;
+						if(g_Duel[Player1].ClassRestrict >= 10)	// Modulo 10 classes
+							g_Duel[Player1].ClassRestrict = 0;
 
 					}
-					while(!AvailableClass[g_Duel[Player1][ClassRestrict]]);
+					while(!AvailableClass[g_Duel[Player1].ClassRestrict]);
 				}
 				else
-					g_Duel[Player1][ClassRestrict] = 0;
+					g_Duel[Player1].ClassRestrict = 0;
 			}
 			else if(args == 4)		// Challenger protection
 			{
 				if(GetConVarBool(c_EnableGodMod) && isAdmin(Player1, FlagNeeded1))
-					g_Duel[Player1][GodMod] = g_Duel[Player1][GodMod] ? 0 : 1;
+					g_Duel[Player1].GodMod = g_Duel[Player1].GodMod ? 0 : 1;
 				else
-					g_Duel[Player1][GodMod] = 0;
+					g_Duel[Player1].GodMod = 0;
 			}
 			else if(args == 5) // Head shot only
 			{
-				if(GetConVarBool(c_EnableHeadShot) && g_Duel[Player1][ClassRestrict] == 2 && isAdmin(Player1, FlagNeeded2))
-					g_Duel[Player1][HeadShot] = g_Duel[Player1][HeadShot] ? false : true;
+				if(GetConVarBool(c_EnableHeadShot) && g_Duel[Player1].ClassRestrict == 2 && isAdmin(Player1, FlagNeeded2))
+					g_Duel[Player1].HeadShot = g_Duel[Player1].HeadShot ? false : true;
 				else
-					g_Duel[Player1][HeadShot] = false;
+					g_Duel[Player1].HeadShot = false;
 			}
 			else if(args == 6)	// Click on rules
 			{
@@ -974,28 +973,28 @@ public DuelOptionAnswer(Handle:menu, MenuAction:action, Player1, args)
 			}
 			else if(args == 7)	// Click on send duel
 			{
-				if(!isGoodSituation(Player1, g_Duel[Player1][Challenger]))
+				if(!isGoodSituation(Player1, g_Duel[Player1].Challenger))
 					return;
 					
-				if(IsClientInGame(g_Duel[Player1][Challenger]))
+				if(IsClientInGame(g_Duel[Player1].Challenger))
 				{
-					g_Duel[g_Duel[Player1][Challenger]][Challenger] 	= Player1;
-					g_Duel[g_Duel[Player1][Challenger]][Type]			= g_Duel[Player1][Type];
-					g_Duel[g_Duel[Player1][Challenger]][Score]			= g_Duel[Player1][Score] = g_Duel[Player1][Type] < 3 ? 0:g_Duel[Player1][Score]; 
-					g_Duel[g_Duel[Player1][Challenger]][ClassRestrict]	= g_Duel[Player1][ClassRestrict];
-					g_Duel[g_Duel[Player1][Challenger]][GodMod]			= g_Duel[Player1][GodMod];
-					g_Duel[g_Duel[Player1][Challenger]][HeadShot]		= g_Duel[Player1][HeadShot];
-					g_Duel[g_Duel[Player1][Challenger]][TimeLeft]		= g_Duel[Player1][TimeLeft] *= 60;
+					g_Duel[g_Duel[Player1].Challenger].Challenger 	= Player1;
+					g_Duel[g_Duel[Player1].Challenger].Type			= g_Duel[Player1].Type;
+					g_Duel[g_Duel[Player1].Challenger].Score			= g_Duel[Player1].Score = g_Duel[Player1].Type < 3 ? 0:g_Duel[Player1].Score; 
+					g_Duel[g_Duel[Player1].Challenger].ClassRestrict	= g_Duel[Player1].ClassRestrict;
+					g_Duel[g_Duel[Player1].Challenger].GodMod			= g_Duel[Player1].GodMod;
+					g_Duel[g_Duel[Player1].Challenger].HeadShot		= g_Duel[Player1].HeadShot;
+					g_Duel[g_Duel[Player1].Challenger].TimeLeft		= g_Duel[Player1].TimeLeft *= 60;
 					
 				
-					if(IsFakeClient(g_Duel[Player1][Challenger])) // Against BOT
-						LoadDuel(g_Duel[Player1][Challenger]);
+					if(IsFakeClient(g_Duel[Player1].Challenger)) // Against BOT
+						LoadDuel(g_Duel[Player1].Challenger);
 					else	
-						ChallengerMenu(Player1, g_Duel[Player1][Challenger]); // Against Player
+						ChallengerMenu(Player1, g_Duel[Player1].Challenger); // Against Player
 				}
 				else
 				{
-					ResetPlayer(g_Duel[Player1][Challenger]);
+					ResetPlayer(g_Duel[Player1].Challenger);
 					ResetPlayer(Player1);
 					CPrintToChat(Player1, "%t", "NotInGame");
 				}
@@ -1003,7 +1002,7 @@ public DuelOptionAnswer(Handle:menu, MenuAction:action, Player1, args)
 			}
 			else if(args == 8)	// Click on exit
 			{
-				ResetPlayer(g_Duel[Player1][Challenger]);
+				ResetPlayer(g_Duel[Player1].Challenger);
 				ResetPlayer(Player1);
 				return;
 			}
@@ -1014,23 +1013,28 @@ public DuelOptionAnswer(Handle:menu, MenuAction:action, Player1, args)
 	}	
 }
 
-bool:StartReadingFromTable()
+bool StartReadingFromTable()
 {
-	decl String:file[PLATFORM_MAX_PATH];
-	decl String:config[PLATFORM_MAX_PATH];
-	decl String:mapname[32];
-	new MaxClass[MAXPLAYERS][TFTeam + TFTeam:1][TFClassType + TFClassType:1];
-	
+	char file[PLATFORM_MAX_PATH];
+	char config[PLATFORM_MAX_PATH];
+	char mapname[32]; 
+	//new MaxClass[MAXPLAYERS][TFTeam + TFTeam:1][TFClassType + TFClassType:1];
+	char MaxClass[MAXPLAYERS][TFTeam][TFClassType];
+		
 	GetConVarString(FindConVar("sm_maxclass_config"), config, sizeof(config));
 	BuildPath(Path_SM, file, sizeof(file),"configs/%s", config);
 
 	if (!FileExists(file))
-	  BuildPath(Path_SM, file, sizeof(file),"configs/%s", "MaxClass.txt");
+	{
+		BuildPath(Path_SM, file, sizeof(file),"configs/%s", "MaxClass.txt");
+	}
 
 	if (!FileExists(file))
+	{
 		return false;
+	}
 
-	new Handle:kv = CreateKeyValues("MaxClassPlayers");
+	Handle kv = CreateKeyValues("MaxClassPlayers");
 	FileToKeyValues(kv, file);
 
 	//Get in the first sub-key, first look for the map, then look for default
@@ -1050,18 +1054,32 @@ bool:StartReadingFromTable()
 		}
 	}
 
-	new MaxPlayers[TFClassType + TFClassType:1], breakpoint, iStart, iEnd, i, TFTeam:a;
-	decl String:buffer[64],String:start[32], String:end[32];
-	new redblue[TFTeam];
-
+	//new MaxPlayers[TFClassType + TFClassType:1];//, breakpoint, iStart, iEnd, i, TFTeam:a;
+	char MaxPlayers[TFClassType];
+	int breakpoint;
+	int iStart;
+	int iEnd;
+	TFTeam a;
+	char buffer[64];
+	char start[32];
+	char end[32];
+	char redblue[TFTeam];
+	
 	//Reset all numbers to -1
-	for (i=0; i<10; i++)
+	for (TFClassType i = TFClass_Unknown; i < TFClass_Engineer; i++)
+	{
 		MaxPlayers[i] = -1;
 
-	for (i=0; i<=GetMaxClients(); i++)
-		for (a=TFTeam_Unassigned; a <= TFTeam_Blue; a++)
+	}
+	
+	for (int i=0; i <= MaxClients; i++)
+	{
+		for ( a = TFTeam_Unassigned; a <= TFTeam_Blue; a++)
+		{
 			MaxClass[i][a] = MaxPlayers;
-
+		}
+	}
+	
 	if (!KvGotoFirstSubKey(kv))
 	{
 		CloseHandle(kv);
@@ -1124,7 +1142,7 @@ bool:StartReadingFromTable()
 			iEnd = CheckBoundries(StringToInt(end));
 
 			//Copy data to the global array for each one in the range
-			for (i= iStart; i<= iEnd;i++)
+			for (int i= iStart; i<= iEnd;i++)
 			{
 				for (a=TFTeam_Unassigned; a<= TFTeam_Blue; a++)
 				{
@@ -1133,7 +1151,7 @@ bool:StartReadingFromTable()
 				}
 			}
 		}	
-		for(i = 1; i<10; i++)
+		for(int i = 1; i<10; i++)
 		{
 			LimitPerClass[2][i] = MaxClass[GetClientCount(true)][2][i];
 			LimitPerClass[3][i] = MaxClass[GetClientCount(true)][1][i];
@@ -1145,7 +1163,7 @@ bool:StartReadingFromTable()
 	return true;
 }
 
-CheckBoundries(i)
+int CheckBoundries(i)
 {
 	if (i < 0)
 		return 0;
@@ -1163,16 +1181,16 @@ CheckBoundries(i)
 
 public ChallengerMenu(Player1, Player2)
 {
-	if(g_Duel[Player1][Type] == 1)
+	if(g_Duel[Player1].Type == 1)
 	{
 		ClientCommand(Player1, "playgamesound ui/duel_challenge.wav");
-		ClientCommand(g_Duel[Player1][Challenger], "playgamesound ui/duel_challenge.wav");
+		ClientCommand(g_Duel[Player1].Challenger, "playgamesound ui/duel_challenge.wav");
 		
 	}
-	else if(g_Duel[Player1][Type] == 2 || g_Duel[Player1][Type] == 3)
+	else if(g_Duel[Player1].Type == 2 || g_Duel[Player1].Type == 3)
 	{
 		ClientCommand(Player1, "playgamesound ui/duel_challenge_with_restriction.wav");
-		ClientCommand(g_Duel[Player1][Challenger], "playgamesound ui/duel_challenge_with_restriction.wav");
+		ClientCommand(g_Duel[Player1].Challenger, "playgamesound ui/duel_challenge_with_restriction.wav");
 	}
 	else
 	{
@@ -1182,10 +1200,10 @@ public ChallengerMenu(Player1, Player2)
 	}
 	
 	for(new i; i<MaxClients; i++)
-		if(IsValidClient(i) && i != g_Duel[Player1][Challenger])
-			CPrintToChat(i, "%t", "Challenged", Player1, g_Duel[Player1][Challenger]);
+		if(IsValidClient(i) && i != g_Duel[Player1].Challenger)
+			CPrintToChat(i, "%t", "Challenged", Player1, g_Duel[Player1].Challenger);
 			
-	CPrintToChat(Player2, "%t", "You!", Player1, g_Duel[Player1][Type]);
+	CPrintToChat(Player2, "%t", "You!", Player1, g_Duel[Player1].Type);
 	
 	
 	new String:MenuItem[100];
@@ -1194,19 +1212,19 @@ public ChallengerMenu(Player1, Player2)
 	
 	Format(MenuTitle, sizeof(MenuTitle), "%N challenged you!", Player1);
 	SetPanelTitle(menu, MenuTitle);
-	if(g_Duel[Player1][Type] == 1)
+	if(g_Duel[Player1].Type == 1)
 		Format(MenuItem, sizeof(MenuItem), "Type: Normal");
-	else if(g_Duel[Player1][Type] == 2)
-		Format(MenuItem, sizeof(MenuItem), "Type: Time left         [%i %s]", g_Duel[Player1][TimeLeft], g_Duel[Player1][TimeLeft] >1 ? "mins":"min");
-	else if(g_Duel[Player1][Type] == 3)
-		Format(MenuItem, sizeof(MenuItem), "Type: Amount of kills   [%i %s]", g_Duel[Player1][Score], g_Duel[Player1][Score] >1 ? "kills":"kill");
+	else if(g_Duel[Player1].Type == 2)
+		Format(MenuItem, sizeof(MenuItem), "Type: Time left         [%i %s]", g_Duel[Player1].TimeLeft, g_Duel[Player1].TimeLeft >1 ? "mins":"min");
+	else if(g_Duel[Player1].Type == 3)
+		Format(MenuItem, sizeof(MenuItem), "Type: Amount of kills   [%i %s]", g_Duel[Player1].Score, g_Duel[Player1].Score >1 ? "kills":"kill");
 	DrawPanelText(menu, MenuItem);
 	DrawPanelText(menu, " ");
-	Format(MenuItem, sizeof(MenuItem), "Class restriction                [%s]", ClassNames[g_Duel[Player1][ClassRestrict]]);
+	Format(MenuItem, sizeof(MenuItem), "Class restriction                [%s]", ClassNames[g_Duel[Player1].ClassRestrict]);
 	DrawPanelText(menu, MenuItem);
-	Format(MenuItem, sizeof(MenuItem), "Challenger protection       [%s]", g_Duel[Player1][GodMod] ? "ON":"OFF");
+	Format(MenuItem, sizeof(MenuItem), "Challenger protection       [%s]", g_Duel[Player1].GodMod ? "ON":"OFF");
 	DrawPanelText(menu, MenuItem);
-	Format(MenuItem, sizeof(MenuItem), "Head shot only                  [%s]", g_Duel[Player1][HeadShot] ? "ON":"OFF");
+	Format(MenuItem, sizeof(MenuItem), "Head shot only                  [%s]", g_Duel[Player1].HeadShot ? "ON":"OFF");
 	DrawPanelText(menu, MenuItem);
 	Format(MenuItem, sizeof(MenuItem), "                                ");
 	DrawPanelText(menu, MenuItem);
@@ -1222,8 +1240,8 @@ public ChallengerMenuAnswer(Handle:menu, MenuAction:action, Player2, args)
 {
 	if (action == MenuAction_Cancel)
 	{
-		CPrintToChatAll("%t", "TooAfraid", Player2, g_Duel[Player2][Challenger]);
-		ResetPlayer(g_Duel[Player2][Challenger]);
+		CPrintToChatAll("%t", "TooAfraid", Player2, g_Duel[Player2].Challenger);
+		ResetPlayer(g_Duel[Player2].Challenger);
 		ResetPlayer(Player2);
 	}
 	else if (action == MenuAction_End)
@@ -1234,7 +1252,7 @@ public ChallengerMenuAnswer(Handle:menu, MenuAction:action, Player2, args)
 	{
 		if(args == 1)	// ACCEPT THE DUEL
 		{
-			if(!isGoodSituation(Player2, g_Duel[Player2][Challenger]))
+			if(!isGoodSituation(Player2, g_Duel[Player2].Challenger))
 				return;
 			
 			LoadDuel(Player2); // Load Duel
@@ -1242,8 +1260,8 @@ public ChallengerMenuAnswer(Handle:menu, MenuAction:action, Player2, args)
 		}
 		else if(args == 2)	// REFUSE THE DUEL
 		{
-			new Player1 = g_Duel[Player2][Challenger];
-			new D_Type	= g_Duel[Player2][Type];
+			new Player1 = g_Duel[Player2].Challenger;
+			new D_Type	= g_Duel[Player2].Type;
 			
 			ResetPlayer(Player1);
 			ResetPlayer(Player2);
@@ -1267,54 +1285,54 @@ public ChallengerMenuAnswer(Handle:menu, MenuAction:action, Player2, args)
 
 LoadDuel(Player2)
 {
-	if(!isGoodSituation(g_Duel[Player2][Challenger], Player2)) return;
+	if(!isGoodSituation(g_Duel[Player2].Challenger, Player2)) return;
 	
-	g_Duel[Player2][Enabled] = true;
-	g_Duel[g_Duel[Player2][Challenger]][Enabled] = true;
+	g_Duel[Player2].Enabled = true;
+	g_Duel[g_Duel[Player2].Challenger].Enabled = true;
 	
-	if(g_Duel[Player2][ClassRestrict] != 0) // Load Classrestriction
+	if(g_Duel[Player2].ClassRestrict != 0) // Load Classrestriction
 	{
-		if(TFClassType:g_Duel[Player2][ClassRestrict] != TFClassType:TF2_GetPlayerClass(Player2)) // Player2
+		if(TFClassType:g_Duel[Player2].ClassRestrict != TFClassType:TF2_GetPlayerClass(Player2)) // Player2
 		{
-			TF2_SetPlayerClass(Player2, TFClassType:g_Duel[Player2][ClassRestrict], false);
+			TF2_SetPlayerClass(Player2, TFClassType:g_Duel[Player2].ClassRestrict, false);
 			TF2_RespawnPlayer(Player2);
 		}
 		
-		if(TFClassType:g_Duel[Player2][ClassRestrict] != TFClassType:TF2_GetPlayerClass(g_Duel[Player2][Challenger])) // Player1
+		if(TFClassType:g_Duel[Player2].ClassRestrict != TFClassType:TF2_GetPlayerClass(g_Duel[Player2].Challenger)) // Player1
 		{
-			TF2_SetPlayerClass(g_Duel[Player2][Challenger], TFClassType:g_Duel[Player2][ClassRestrict], false);
-			TF2_RespawnPlayer(g_Duel[Player2][Challenger]);
+			TF2_SetPlayerClass(g_Duel[Player2].Challenger, TFClassType:g_Duel[Player2].ClassRestrict, false);
+			TF2_RespawnPlayer(g_Duel[Player2].Challenger);
 		}	
 	}
 	
-	if(g_Duel[Player2][GodMod])	// Load Godmod
+	if(g_Duel[Player2].GodMod)	// Load Godmod
 	{	
 		if(TF2_GetPlayerClass(Player2) == TFClass_Engineer)
 			RemovePlayerBuilding(Player2);
-		if(TF2_GetPlayerClass(g_Duel[Player2][Challenger]) == TFClass_Engineer)	
-			RemovePlayerBuilding(g_Duel[Player2][Challenger]);
+		if(TF2_GetPlayerClass(g_Duel[Player2].Challenger) == TFClass_Engineer)	
+			RemovePlayerBuilding(g_Duel[Player2].Challenger);
 			
 		SetGodModColor(Player2);
-		SetGodModColor(g_Duel[Player2][Challenger]);
+		SetGodModColor(g_Duel[Player2].Challenger);
 	}
 	
 	CreateChallengerParticle(Player2);
-	CreateChallengerParticle(g_Duel[Player2][Challenger]);
+	CreateChallengerParticle(g_Duel[Player2].Challenger);
 	
-	if(g_Duel[Player2][Type] == 1) // Play Sound
+	if(g_Duel[Player2].Type == 1) // Play Sound
 	{
 		ClientCommand(Player2, "playgamesound ui/duel_challenge_accepted.wav");
-		ClientCommand(g_Duel[Player2][Challenger], "playgamesound ui/duel_challenge_accepted.wav");
+		ClientCommand(g_Duel[Player2].Challenger, "playgamesound ui/duel_challenge_accepted.wav");
 	}
-	else if(g_Duel[Player2][Type] == 2 || g_Duel[Player2][Type] == 3)
+	else if(g_Duel[Player2].Type == 2 || g_Duel[Player2].Type == 3)
 	{
 		ClientCommand(Player2, "playgamesound ui/duel_challenge_accepted_with_restriction.wav");
-		ClientCommand(g_Duel[Player2][Challenger], "playgamesound ui/duel_challenge_accepted_with_restriction.wav");
+		ClientCommand(g_Duel[Player2].Challenger, "playgamesound ui/duel_challenge_accepted_with_restriction.wav");
 	}
 	
-	CPrintToChatAll("%t", "Accepts", Player2, g_Duel[Player2][Challenger]);
+	CPrintToChatAll("%t", "Accepts", Player2, g_Duel[Player2].Challenger);
 	CPrintToChat(Player2,"%t", "Abort");
-	CPrintToChat(g_Duel[Player2][Challenger],"%t", "Abort");
+	CPrintToChat(g_Duel[Player2].Challenger,"%t", "Abort");
 }
 
 
@@ -1385,18 +1403,18 @@ CreateChallengerParticle(iClient)
 		SetVariantString(strParent);
 		AcceptEntityInput(ent, "SetParent");
 
-		g_Duel[iClient][CSprite] = EntIndexToEntRef(ent);
-		g_Duel[iClient][SpriteParent] = EntIndexToEntRef(parent);
+		g_Duel[iClient].CSprite = EntIndexToEntRef(ent);
+		g_Duel[iClient].SpriteParent = EntIndexToEntRef(parent);
 		SDKHook(ent, SDKHook_SetTransmit, Hook_SetTransmit);
 	}
 }
 
 public Action:Hook_SetTransmit(entity, iClient) 
 {
-	if(EntRefToEntIndex(g_Duel[iClient][CSprite]) == entity && !g_Duel[iClient][HideSprite])	// Can see
+	if(EntRefToEntIndex(g_Duel[iClient].CSprite) == entity && !g_Duel[iClient].HideSprite)	// Can see
 		return Plugin_Continue;
 
-	if(EntRefToEntIndex(g_Duel[g_Duel[iClient][Challenger]][CSprite]) == entity && !g_Duel[g_Duel[iClient][Challenger]][HideSprite]) // Can see
+	if(EntRefToEntIndex(g_Duel[g_Duel[iClient].Challenger].CSprite) == entity && !g_Duel[g_Duel[iClient].Challenger].HideSprite) // Can see
 		return Plugin_Continue;
 
 	return Plugin_Handled;
@@ -1409,19 +1427,19 @@ public Action:Timer(Handle:timer)
 	Countdown--;
 	for(new t=1; t<=MaxClients; t++)
 	{
-		if(IsClientInGame(t) && IsClientConnected(t) && !IsClientReplay(t) && !IsClientSourceTV(t) && g_Duel[t][Enabled])
+		if(IsClientInGame(t) && IsClientConnected(t) && !IsClientReplay(t) && !IsClientSourceTV(t) && g_Duel[t].Enabled)
 		{
 			HudMessageTime(t);
 			
-			g_Duel[t][PlayedTime] += 1;
+			g_Duel[t].PlayedTime += 1;
 			
-			if(g_Duel[t][Type] == 2)
+			if(g_Duel[t].Type == 2)
 			{
-				g_Duel[t][TimeLeft] -= 1;
-				if(g_Duel[t][TimeLeft] <= 0)
+				g_Duel[t].TimeLeft -= 1;
+				if(g_Duel[t].TimeLeft <= 0)
 				{
-					g_Duel[g_Duel[t][Challenger]][Enabled] = false;
-					EndDuel(t, g_Duel[t][Type]);
+					g_Duel[g_Duel[t].Challenger].Enabled = false;
+					EndDuel(t, g_Duel[t].Type);
 				}
 			}
 			
@@ -1439,8 +1457,8 @@ HudMessageTime(iClient)
 {
 	SetHudTextParams(0.85, 0.0, 1.0, 39, 148, 0, 255, 1, 0.0, 0.0, 0.0);
 	
-	if(g_Duel[iClient][Type] == 1 || g_Duel[iClient][Type] == 3)	ShowHudText(iClient, -1, "You : %i - Him: %i", g_Duel[iClient][Score], g_Duel[g_Duel[iClient][Challenger]][Score]);
-	else if(g_Duel[iClient][Type] == 2)	ShowHudText(iClient, -1, "Time left : %i | You : %i - Him: %i", g_Duel[iClient][TimeLeft], g_Duel[iClient][Score], g_Duel[g_Duel[iClient][Challenger]][Score]);
+	if(g_Duel[iClient].Type == 1 || g_Duel[iClient].Type == 3)	ShowHudText(iClient, -1, "You : %i - Him: %i", g_Duel[iClient].Score, g_Duel[g_Duel[iClient].Challenger].Score);
+	else if(g_Duel[iClient].Type == 2)	ShowHudText(iClient, -1, "Time left : %i | You : %i - Him: %i", g_Duel[iClient].TimeLeft, g_Duel[iClient].Score, g_Duel[g_Duel[iClient].Challenger].Score);
 }
 
 public OnClientPutInServer(iClient)
@@ -1452,19 +1470,19 @@ public OnClientDisconnect(iClient)
 {
 	if(!IsValidClient(iClient)) return;
 	
-	if(g_Duel[iClient][Enabled]) 
+	if(g_Duel[iClient].Enabled) 
 	{
-		CPrintToChatAll("%t","Victory", g_Duel[iClient][Challenger], iClient, "(Player disconnected)");
+		CPrintToChatAll("%t","Victory", g_Duel[iClient].Challenger, iClient, "(Player disconnected)");
 		
-		if(IsValidClient(g_Duel[iClient][Challenger]))
-			ClientCommand(g_Duel[iClient][Challenger], "playgamesound ui/duel_event.wav");
+		if(IsValidClient(g_Duel[iClient].Challenger))
+			ClientCommand(g_Duel[iClient].Challenger, "playgamesound ui/duel_event.wav");
 		
-		Winner[g_Duel[iClient][Challenger]]		= true;
+		Winner[g_Duel[iClient].Challenger]		= true;
 		Winner[iClient]				= false;
 		Abandon[iClient] 			= true;
-		Abandon[g_Duel[iClient][Challenger]] 		= false;
+		Abandon[g_Duel[iClient].Challenger] 		= false;
 		
-		InitializeClientonDB(g_Duel[iClient][Challenger]);
+		InitializeClientonDB(g_Duel[iClient].Challenger);
 		InitializeClientonDB(iClient);
 	}
 }
@@ -1473,23 +1491,23 @@ public Action:AbortDuel(iClient, Args)
 {
 	if(!IsValidClient(iClient)) return;
 	
-	if(g_Duel[iClient][Enabled])
+	if(g_Duel[iClient].Enabled)
 	{
 		new String:reason[64];
 		Format(reason, sizeof(reason), "(%N aborted)", iClient);
-		CPrintToChatAll("%t","Victory", g_Duel[iClient][Challenger], iClient, reason);
+		CPrintToChatAll("%t","Victory", g_Duel[iClient].Challenger, iClient, reason);
 		
-		Winner[g_Duel[iClient][Challenger]]		= true;
+		Winner[g_Duel[iClient].Challenger]		= true;
 		Winner[iClient]				= false;
 		Abandon[iClient] 			= true;
-		Abandon[g_Duel[iClient][Challenger]] 		= false;
+		Abandon[g_Duel[iClient].Challenger] 		= false;
 		
-		InitializeClientonDB(g_Duel[iClient][Challenger]);
+		InitializeClientonDB(g_Duel[iClient].Challenger);
 		InitializeClientonDB(iClient);
 		
-		if(g_Duel[iClient][Challenger] != 0)
+		if(g_Duel[iClient].Challenger != 0)
 		{
-			ClientCommand(g_Duel[iClient][Challenger], "playgamesound ui/duel_event.wav");
+			ClientCommand(g_Duel[iClient].Challenger, "playgamesound ui/duel_event.wav");
 		}
 		if(iClient != 0)
 		{
@@ -1523,13 +1541,13 @@ public bool:isGoodSituation(iClient, Player2)
 		return false;
 	}
 	
-	if(g_Duel[Player2][Enabled])  		// too late ! iClient Player2 already in duel ...
+	if(g_Duel[Player2].Enabled)  		// too late ! iClient Player2 already in duel ...
 	{
 		CPrintToChat(iClient,"%t", "IsInDuel", Player2);	
 		ResetPlayer(iClient);
 		return false;
 	}
-	else if(g_Duel[iClient][Enabled])  			// you are already in duel ...
+	else if(g_Duel[iClient].Enabled)  			// you are already in duel ...
 	{
 		CPrintToChat(iClient,"%t", "InDuel");
 		ResetPlayer(iClient);
@@ -1582,7 +1600,7 @@ GetSafeClientData(iClient)
 		strcopy(PlayerInfo, MAX_LINE_WIDTH, "BOT"); 
 	else
 	{
-		GetClientAuthString(iClient, PlayerInfo, sizeof(PlayerInfo));
+		GetClientAuthId(iClient, AuthId_Steam2, PlayerInfo, sizeof(PlayerInfo));
 		if(StrEqual(PlayerInfo,""))		// O.o It's Possible !? yes ...
 			strcopy(PlayerInfo, MAX_LINE_WIDTH, "INVALID"); 
 	}
@@ -1736,58 +1754,58 @@ bool:EndDuel(iClient, DuelType)
 	{
 		if(DuelType == 1 || DuelType == 2)
 		{
-			if(g_Duel[iClient][Score] > g_Duel[g_Duel[iClient][Challenger]][Score])
+			if(g_Duel[iClient].Score > g_Duel[g_Duel[iClient].Challenger].Score)
 			{
-				CPrintToChatAll("%t", "Victory", iClient, g_Duel[iClient][Challenger],"");
+				CPrintToChatAll("%t", "Victory", iClient, g_Duel[iClient].Challenger,"");
 				Winner[iClient] 		= true;
-				Winner[g_Duel[iClient][Challenger]] 	= false;
+				Winner[g_Duel[iClient].Challenger] 	= false;
 			}
-			else if (g_Duel[iClient][Score] < g_Duel[g_Duel[iClient][Challenger]][Score])
+			else if (g_Duel[iClient].Score < g_Duel[g_Duel[iClient].Challenger].Score)
 			{
-				CPrintToChatAll("%t", "Victory", g_Duel[iClient][Challenger], iClient,"");
+				CPrintToChatAll("%t", "Victory", g_Duel[iClient].Challenger, iClient,"");
 				Winner[iClient] 		= false;
-				Winner[g_Duel[iClient][Challenger]] 	= true;
+				Winner[g_Duel[iClient].Challenger] 	= true;
 			}
 			else
 			{
-				CPrintToChatAll("%t", "Equality", g_Duel[iClient][Challenger], iClient);
+				CPrintToChatAll("%t", "Equality", g_Duel[iClient].Challenger, iClient);
 				Equality[iClient] 		= true;
 				Winner[iClient] 		= true;
-				Equality[g_Duel[iClient][Challenger]] = true;
-				Winner[g_Duel[iClient][Challenger]] 	= true;
+				Equality[g_Duel[iClient].Challenger] = true;
+				Winner[g_Duel[iClient].Challenger] 	= true;
 			}
 		}
 		else if(DuelType == 3)
 		{
-			if(g_Duel[iClient][Score] > g_Duel[g_Duel[iClient][Challenger]][Score])
+			if(g_Duel[iClient].Score > g_Duel[g_Duel[iClient].Challenger].Score)
 			{
-				CPrintToChatAll("%t", "Victory", g_Duel[iClient][Challenger], iClient,"");
+				CPrintToChatAll("%t", "Victory", g_Duel[iClient].Challenger, iClient,"");
 				Winner[iClient] 		= false;
-				Winner[g_Duel[iClient][Challenger]] 	= true;
+				Winner[g_Duel[iClient].Challenger] 	= true;
 			}
-			else if (g_Duel[iClient][Score] < g_Duel[g_Duel[iClient][Challenger]][Score])
+			else if (g_Duel[iClient].Score < g_Duel[g_Duel[iClient].Challenger].Score)
 			{
-				CPrintToChatAll("%t", "Victory", iClient, g_Duel[iClient][Challenger],"");
+				CPrintToChatAll("%t", "Victory", iClient, g_Duel[iClient].Challenger,"");
 				Winner[iClient] 		= true;
-				Winner[g_Duel[iClient][Challenger]] 	= false;
+				Winner[g_Duel[iClient].Challenger] 	= false;
 			}
 			else
 			{
-				CPrintToChatAll("%t", "Equality", g_Duel[iClient][Challenger], iClient);
+				CPrintToChatAll("%t", "Equality", g_Duel[iClient].Challenger, iClient);
 				Equality[iClient] 		= true;
 				Winner[iClient] 		= true;
-				Equality[g_Duel[iClient][Challenger]] = true;
-				Winner[g_Duel[iClient][Challenger]] 	= true;
+				Equality[g_Duel[iClient].Challenger] = true;
+				Winner[g_Duel[iClient].Challenger] 	= true;
 			}
 		}
 		
-		if(IsValidClient(g_Duel[iClient][Challenger]))
-			ClientCommand(g_Duel[iClient][Challenger], "playgamesound ui/duel_event.wav");
+		if(IsValidClient(g_Duel[iClient].Challenger))
+			ClientCommand(g_Duel[iClient].Challenger, "playgamesound ui/duel_event.wav");
 			
 		if(IsValidClient(iClient))
 			ClientCommand(iClient, "playgamesound ui/duel_event.wav");
 		
-		InitializeClientonDB(g_Duel[iClient][Challenger]);
+		InitializeClientonDB(g_Duel[iClient].Challenger);
 		InitializeClientonDB(iClient);
 		
 		return true;
@@ -1815,11 +1833,11 @@ public T_UpdateClient(Handle:owner, Handle:hndl, const String:error[], any:iClie
 	new CltPoint;
 	new Victory;
 	new Equal;
-	new Kill = g_Duel[iClient][kills];
-	new Dead = g_Duel[iClient][Deads];
+	new Kill = g_Duel[iClient].kills;
+	new Dead = g_Duel[iClient].Deads;
 	new Abort = Abandon[iClient];
-	new Tmer = g_Duel[iClient][PlayedTime];
-	new Dueller = g_Duel[iClient][Challenger];
+	new Tmer = g_Duel[iClient].PlayedTime;
+	new Dueller = g_Duel[iClient].Challenger;
 		
 	if(Equality[iClient])
 	{
@@ -1886,35 +1904,35 @@ public T_UpdateClient(Handle:owner, Handle:hndl, const String:error[], any:iClie
 
 ResetPlayer(iClient)
 {
-	if(IsValidClient(iClient) && g_Duel[iClient][GodMod])
+	if(IsValidClient(iClient) && g_Duel[iClient].GodMod)
 		SetEntityRenderColor(iClient, 255, 255, 255, 0);
 	
-	g_Duel[iClient][Enabled] 		= false;
-	g_Duel[iClient][HeadShot]		= false;
-	g_Duel[iClient][ClassRestrict] 	= 0;
-	g_Duel[iClient][kills]			= 0;
-	g_Duel[iClient][Deads]			= 0;
-	g_Duel[iClient][TimeLeft]		= 0;
-	g_Duel[iClient][Score]			= 0;
-	g_Duel[iClient][Challenger] 	= 0;
-	g_Duel[iClient][PlayedTime]		= 0;
-	g_Duel[iClient][GodMod]			= 0;
-	g_Duel[iClient][Type]			= 0;
+	g_Duel[iClient].Enabled 		= false;
+	g_Duel[iClient].HeadShot		= false;
+	g_Duel[iClient].ClassRestrict 	= 0;
+	g_Duel[iClient].kills			= 0;
+	g_Duel[iClient].Deads			= 0;
+	g_Duel[iClient].TimeLeft		= 0;
+	g_Duel[iClient].Score			= 0;
+	g_Duel[iClient].Challenger 	= 0;
+	g_Duel[iClient].PlayedTime		= 0;
+	g_Duel[iClient].GodMod			= 0;
+	g_Duel[iClient].Type			= 0;
 	
 	Winner[iClient]				= false;
 	Abandon[iClient]			= false;
 	Equality[iClient]			= false;
 	
-	if(IsValidEdict(EntRefToEntIndex(g_Duel[iClient][SpriteParent])))
+	if(IsValidEdict(EntRefToEntIndex(g_Duel[iClient].SpriteParent)))
 	{
-		RemoveEdict(EntRefToEntIndex(g_Duel[iClient][SpriteParent]));
-		g_Duel[iClient][SpriteParent] = -1;
+		RemoveEdict(EntRefToEntIndex(g_Duel[iClient].SpriteParent));
+		g_Duel[iClient].SpriteParent = -1;
 	}
 	
-	if(IsValidEdict(EntRefToEntIndex(g_Duel[iClient][CSprite])))
+	if(IsValidEdict(EntRefToEntIndex(g_Duel[iClient].CSprite)))
 	{
-		RemoveEdict(EntRefToEntIndex(g_Duel[iClient][CSprite]));
-		g_Duel[iClient][CSprite] = -1;
+		RemoveEdict(EntRefToEntIndex(g_Duel[iClient].CSprite));
+		g_Duel[iClient].CSprite = -1;
 	}
 }
 
@@ -1930,7 +1948,7 @@ public Native_IsPlayerInDuel(Handle:plugin, numParams)
 	
 	if(!IsValidClient(iClient)) return false;
 	
-	if(g_Duel[iClient][Enabled])
+	if(g_Duel[iClient].Enabled)
 		return true;
 	else
 		return false;
@@ -1942,7 +1960,7 @@ public Native_IsDuelRestrictionClass(Handle:plugin, numParams)
 	
 	if(!IsValidClient(iClient)) return false;
 	
-	if(g_Duel[iClient][ClassRestrict] != 0)
+	if(g_Duel[iClient].ClassRestrict != 0)
 		return true;
 	else
 		return false;
@@ -1951,5 +1969,5 @@ public Native_IsDuelRestrictionClass(Handle:plugin, numParams)
 public Native_GetDuelerID(Handle:plugin, numParams)
 {
 	if(!IsValidClient(GetNativeCell(1))) return -1;
-	return g_Duel[GetNativeCell(1)][Challenger];
+	return g_Duel[GetNativeCell(1)].Challenger;
 }
