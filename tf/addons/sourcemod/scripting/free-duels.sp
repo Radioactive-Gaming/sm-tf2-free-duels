@@ -12,7 +12,7 @@
 #define PLUGIN_NAME             "Free duels"
 #define PLUGIN_AUTHOR           "Erreur 500, X8ETr1x, burlindw"
 #define PLUGIN_DESCRIPTION      "Challenge other players"
-#define PLUGIN_VERSION          "2.0.7"
+#define PLUGIN_VERSION          "2.1.0"
 #define PLUGIN_CONTACT          "https://github.com/Radioactive-Gaming/sm-tf2-free-duels/"
 #define WEBSITE                 "https://github.com/Radioactive-Gaming/sm-tf2-free-duels/"
 #define MAX_LINE_WIDTH          60
