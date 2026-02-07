@@ -1389,8 +1389,8 @@ public Action Timer(Handle timer) {
 void HudMessageTime(int iClient) {
 	SetHudTextParams(0.85, 0.0, 1.0, 39, 148, 0, 255, 1, 0.0, 0.0, 0.0);
 
-	if(g_Duel[iClient].Type == 1 || g_Duel[iClient].Type == 3)	ShowHudText(iClient, -1, "You : %i - Him: %i", g_Duel[iClient].Score, g_Duel[g_Duel[iClient].Challenger].Score);
-	else if(g_Duel[iClient].Type == 2)	ShowHudText(iClient, -1, "Time left : %i | You : %i - Him: %i", g_Duel[iClient].TimeLeft, g_Duel[iClient].Score, g_Duel[g_Duel[iClient].Challenger].Score);
+	if(g_Duel[iClient].Type == 1 || g_Duel[iClient].Type == 3)	ShowHudText(iClient, -1, "You : %i - Opponent: %i", g_Duel[iClient].Score, g_Duel[g_Duel[iClient].Challenger].Score);
+	else if(g_Duel[iClient].Type == 2)	ShowHudText(iClient, -1, "Time left : %i | You : %i - Opponent: %i", g_Duel[iClient].TimeLeft, g_Duel[iClient].Score, g_Duel[g_Duel[iClient].Challenger].Score);
 }
 
 public void OnClientPutInServer(int iClient) {
